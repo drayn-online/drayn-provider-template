@@ -8,23 +8,23 @@
   "consumer": {
     "consumer_id": "drayn-core"
   },
-  "subject": {
-    "type": "x_account",
-    "id": "123456789"
-  },
   "objective": {
     "type": "observation",
-    "description": "Observe public X activity for this account."
+    "question": "Observe public X activity for this account."
   },
-  "context": {
-    "start_time": "2026-09-30T00:00:00Z",
-    "end_time": "2026-09-30T23:59:59Z"
+  "subject": {
+    "type": "x_account",
+    "id": "@WormsOnAcid"
   },
   "constraints": {
+    "time_window": {
+      "from": "2026-09-30T00:00:00Z",
+      "to": "2026-09-30T23:59:59Z"
+    },
     "max_observations": 25
   },
   "output": {
-    "format": "observations"
+    "format": "structured_observations"
   },
   "payment": {
     "payment_reference": "pay_x_001",
