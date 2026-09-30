@@ -1,6 +1,14 @@
 # DRAYN Provider Template v0.2
 
-A reusable starting point for an independent DRAYN intelligence provider.
+A reusable reference implementation for an independent DRAYN intelligence provider.
+
+**Protocol version:** 0.2  
+**Contract clarification:** v0.2.1 clarification revision (protocol remains 0.2)
+
+Canonical public contract:
+https://app.notion.com/p/3eb900df8ab3812684aec3eff0d6abe9
+
+The Provider Contract is authoritative. This repository is a reference implementation. If the implementation and contract ever differ, reconcile the implementation to the contract rather than inventing a new wire interpretation.
 
 The important boundary is:
 
@@ -11,11 +19,9 @@ The important boundary is:
         -> observations
         -> result + provenance + accounting
 
-The provider decides how it performs the work.
+DRAYN describes the job. The provider decides how to perform the work.
 
-The DRAYN job decides what subject/entity is being observed or processed.
-
-External credentials stay provider-owned. They are never part of the DRAYN provider authentication credential.
+The job supplies the subject/entity. External-service credentials stay provider-owned and are never part of DRAYN provider authentication.
 
 ## Included
 
@@ -24,29 +30,59 @@ External credentials stay provider-owned. They are never part of the DRAYN provi
 - `capabilities.py` - capability declaration
 - `adapters/base.py` - provider adapter interface
 - `adapters/x_observer.py` - example X observation adapter
-- `schemas.py` - validation helpers
-- `sample-job.json` - generic observation job
-- `sample-x-job.json` - X observation example
+- `schemas.py` - v0.2 contract validation helpers
+- `sample-job.json` - canonical observation job
+- `sample-x-job.json` - canonical X observation example
 - `tests/test_provider.py` - contract-level local tests
 
-## The key abstraction
+## Contract-shaped job
 
-A provider is not a research agent.
+The v0.2 template requires:
 
-A provider supplies a declared capability.
+- `protocol_version = "0.2"`
+- capability ID/version
+- `consumer.consumer_id`
+- `objective.type`
+- `objective.question`
+- job-scoped subject for `social.x.observe`
+- `constraints.time_window.from/to` when a window is requested
+- `output.format = "structured_observations"`
+- `payment.payment_reference`
+- `payment.currency = "USDC"`
+- `payment.network = "solana"`
 
-For example:
+For `social.x.observe`, the public subject may be a username such as `@WormsOnAcid`. Resolving that identifier to an external-service-specific ID is provider implementation detail.
 
-    social.x.observe
+## Result boundary
 
-The job supplies the target:
+Completed results use the canonical DRAYN-facing structure:
 
-    subject.type = x_account
-    subject.id   = <account identifier>
+- `result.format`
+- `result.summary`
+- `result.observations[]`
+- top-level `provenance[]`
+- `accounting`
+- original `payment`
 
-The provider owns the credentials required to access X.
+Actual external retrievals must populate `provenance[].retrieved_at`.
 
-This means the same provider can observe different accounts on different jobs without changing its configuration.
+Providers return observations/evidence, not DRAYN's final answer.
+
+## Authentication
+
+DRAYN provider authentication:
+
+    Authorization: Bearer <DRAYN_PROVIDER_TOKEN>
+
+External service credentials are separate:
+
+    X_BEARER_TOKEN
+    GitHub token
+    API key
+    database credentials
+    etc.
+
+The provider controls its DRAYN bearer token. DRAYN never needs the provider's external-service credentials.
 
 ## Run locally
 
@@ -60,67 +96,65 @@ Set a provider token if desired:
 
     NODE002_PROVIDER_TOKEN=...
 
-Otherwise one is generated locally and stored in `provider-token.txt`.
+If no token is supplied, a local token is generated and written to `provider-token.txt`. This file is runtime state and must not be committed.
 
-For a real deployment, put the service behind a trusted HTTPS endpoint. Local HTTP is sufficient for contract testing.
+For remote production exposure, use trusted HTTPS. Local HTTP is sufficient for contract testing.
+
+Without `X_BEARER_TOKEN`, the example X adapter returns clearly labelled synthetic observations for protocol testing. This does not establish live X observation readiness.
+
+With `X_BEARER_TOKEN`, the example adapter demonstrates provider-owned X access, username resolution, requested time-window handling, and canonical observation/provenance output.
 
 ## Test
 
     python -m unittest discover -s tests -v
 
-The tests use a synthetic adapter. No external service credentials are required.
+The supplied tests use a synthetic adapter and do not require external service credentials.
 
-## Adding another provider
+## Payment boundary
 
-Implement `ProviderAdapter` in `adapters/base.py`.
+The sole accepted settlement route for v0.2 is **USDC on Solana**.
 
-Then declare a capability and register the adapter:
+Example:
 
-    capability id: weather.observe
-    capability id: github.observe
-    capability id: market.data.observe
-    capability id: company.telemetry.observe
+    "payment": {
+      "payment_reference": "pay_x_001",
+      "currency": "USDC",
+      "network": "solana",
+      "payer": "consumer-solana-wallet",
+      "payee": "provider-solana-wallet"
+    }
 
-The generic HTTP contract does not change.
-
-Only the capability declaration and provider-owned adapter change.
-
-## Important separation
-
-DRAYN provider authentication:
-
-    Authorization: Bearer <DRAYN_PROVIDER_TOKEN>
-
-External service credentials:
-
-    X_BEARER_TOKEN
-    GitHub token
-    API key
-    database credentials
-    etc.
-
-These are different credentials with different owners and must never be conflated.
-
-## Payment boundary (v0.2)
-
-The provider contract accepts **USDC on Solana only**.
-
-Every job must include:
-
-```json
-"payment": {
-  "payment_reference": "pay_x_001",
-  "currency": "USDC",
-  "network": "solana",
-  "payer": "consumer-solana-wallet",
-  "payee": "provider-solana-wallet"
-}
-```
-
-The provider should treat the payment reference as the job-level accounting reference. Settlement verification remains outside this template unless a provider explicitly adds a verified settlement adapter.
-
-Other currencies or networks are rejected by the template.
+The payment reference is the job-level accounting correlation. Settlement verification is outside this generic template unless a provider explicitly adds its own verified settlement mechanism.
 
 ## Job lifecycle
 
-`expired` is reserved as a valid lifecycle state in the contract. This template does not implement an automatic expiry scheduler; a production provider that uses expiry should implement and document its own expiry policy.
+Valid states are:
+
+    accepted
+    running
+    completed
+    refused
+    failed
+    expired
+
+Normal execution is:
+
+    accepted -> running -> completed
+
+Failed/refused jobs retain an explicit error object in the status response.
+
+`expired` is reserved as a valid contract state. This template does not implement an automatic expiry scheduler or invent a new expiry wire requirement.
+
+## Adding another provider capability
+
+Implement `ProviderAdapter` in `adapters/base.py`.
+
+Then declare a capability and register its adapter. The generic HTTP contract remains the same; only the capability declaration and provider-owned adapter change.
+
+The intended architecture is that an independent developer can implement a specialist provider without access to the DRAYN repository.
+
+## Reference status
+
+This repository is the generic provider template, not Node 002 itself.
+
+Node 002 should be an independent provider implementation against the public Provider Contract and capability requirement.
