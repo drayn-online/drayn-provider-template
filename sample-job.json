@@ -1,0 +1,33 @@
+{
+  "job_id": "job_001",
+  "protocol_version": "0.2",
+  "capability": {
+    "id": "social.x.observe",
+    "version": "0.2"
+  },
+  "consumer": {
+    "consumer_id": "drayn-core"
+  },
+  "subject": {
+    "type": "x_account",
+    "id": "123456789"
+  },
+  "objective": {
+    "type": "observation",
+    "description": "Observe activity for the requested subject."
+  },
+  "context": {},
+  "constraints": {
+    "max_observations": 25
+  },
+  "output": {
+    "format": "observations"
+  },
+  "payment": {
+    "payment_reference": "pay_001",
+    "currency": "USDC",
+    "network": "solana",
+    "payer": "consumer-solana-wallet",
+    "payee": "provider-solana-wallet"
+  }
+}
