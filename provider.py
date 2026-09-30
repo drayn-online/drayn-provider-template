@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from schemas import validate_job, validate_x_observe_job
+from schemas import PROTOCOL_VERSION, validate_job, validate_x_observe_job
 
 
 def now() -> str:
@@ -57,26 +57,27 @@ class DRAYNProvider:
         with self.lock:
             if job_id in self.jobs:
                 existing = self.jobs[job_id]
-                return {
-                    "status_code": 202,
-                    "payload": {
-                        "job_id": job_id,
-                        "provider_id": self.provider_id,
-                        "status": existing["status"],
-                    },
+                payload = {
+                    "job_id": job_id,
+                    "provider_id": self.provider_id,
+                    "status": existing["status"],
                 }
+                if existing.get("error"):
+                    payload["error"] = existing["error"]
+                return {"status_code": 202, "payload": payload}
 
             capability_id = request["capability"]["id"]
 
             if capability_id not in self.adapters:
+                error = {
+                    "code": "CAPABILITY_UNAVAILABLE",
+                    "message": "Capability is declared but not currently available.",
+                }
                 self.jobs[job_id] = {
                     "request": request,
                     "provider_id": self.provider_id,
                     "status": "refused",
-                    "error": {
-                        "code": "CAPABILITY_UNAVAILABLE",
-                        "message": "Capability is declared but not currently available.",
-                    },
+                    "error": error,
                 }
                 return {
                     "status_code": 409,
@@ -84,7 +85,7 @@ class DRAYNProvider:
                         "job_id": job_id,
                         "provider_id": self.provider_id,
                         "status": "refused",
-                        "error": self.jobs[job_id]["error"],
+                        "error": error,
                     },
                 }
 
@@ -95,11 +96,7 @@ class DRAYNProvider:
                 "accepted_at": now(),
             }
 
-        threading.Thread(
-            target=self._execute,
-            args=(job_id,),
-            daemon=True,
-        ).start()
+        threading.Thread(target=self._execute, args=(job_id,), daemon=True).start()
 
         return {
             "status_code": 202,
@@ -117,12 +114,10 @@ class DRAYNProvider:
             job["started_at"] = now()
 
         request = job["request"]
-        capability_id = request["capability"]["id"]
-        adapter = self.adapters[capability_id]
+        adapter = self.adapters[request["capability"]["id"]]
 
         try:
             result = adapter.execute(request)
-
             with self.lock:
                 job["status"] = "completed"
                 job["completed_at"] = now()
@@ -142,38 +137,35 @@ class DRAYNProvider:
             job = self.jobs.get(job_id)
 
         if not job:
-            return 404, {
-                "error": {
-                    "code": "JOB_NOT_FOUND",
-                    "message": "Job does not exist.",
-                }
-            }
+            return 404, {"error": {
+                "code": "JOB_NOT_FOUND",
+                "message": "Job does not exist.",
+            }}
 
-        return 200, {
+        payload = {
             "job_id": job_id,
             "provider_id": self.provider_id,
             "status": job["status"],
         }
+        if job.get("error"):
+            payload["error"] = job["error"]
+        return 200, payload
 
     def result(self, job_id: str) -> tuple[int, dict[str, Any]]:
         with self.lock:
             job = self.jobs.get(job_id)
 
         if not job:
-            return 404, {
-                "error": {
-                    "code": "JOB_NOT_FOUND",
-                    "message": "Job does not exist.",
-                }
-            }
+            return 404, {"error": {
+                "code": "JOB_NOT_FOUND",
+                "message": "Job does not exist.",
+            }}
 
         if job["status"] != "completed":
-            return 409, {
-                "error": {
-                    "code": "RESULT_NOT_READY",
-                    "message": "Only completed jobs have results.",
-                }
-            }
+            return 409, {"error": {
+                "code": "RESULT_NOT_READY",
+                "message": "Only completed jobs have results.",
+            }}
 
         request = job["request"]
         result = job["result"]
@@ -184,10 +176,7 @@ class DRAYNProvider:
             "capability": request["capability"],
             "status": "completed",
             "result": result,
-            "provenance": {
-                "provider_version": "0.2",
-                "generated_at": job["completed_at"],
-            },
+            "provenance": result.get("provenance", []),
             "accounting": {
                 "accepted_at": job["accepted_at"],
                 "started_at": job["started_at"],
@@ -200,7 +189,7 @@ class DRAYNProvider:
     def descriptor(self) -> dict[str, Any]:
         return {
             "provider_id": self.provider_id,
-            "protocol_version": "0.2",
+            "protocol_version": PROTOCOL_VERSION,
             "capabilities": list(self.capabilities.values()),
             "status": "available",
         }
