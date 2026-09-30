@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 
+PROTOCOL_VERSION = "0.2"
 ALLOWED_STATES = {
     "accepted",
     "running",
@@ -35,8 +36,8 @@ def validate_job(request: dict[str, Any], supported_capabilities: set[str]) -> t
     if not valid_nonempty_string(request["job_id"]):
         return False, "job_id must be a non-empty string."
 
-    if not valid_nonempty_string(request["protocol_version"]):
-        return False, "protocol_version must be a non-empty string."
+    if request["protocol_version"] != PROTOCOL_VERSION:
+        return False, f"protocol_version must be {PROTOCOL_VERSION}."
 
     capability = request["capability"]
     if not isinstance(capability, dict):
@@ -54,6 +55,9 @@ def validate_job(request: dict[str, Any], supported_capabilities: set[str]) -> t
     if capability_id not in supported_capabilities:
         return False, f"Unsupported capability: {capability_id}"
 
+    if capability_version != PROTOCOL_VERSION:
+        return False, f"capability.version must be {PROTOCOL_VERSION}."
+
     if not isinstance(request["consumer"], dict):
         return False, "consumer must be an object."
 
@@ -63,8 +67,17 @@ def validate_job(request: dict[str, Any], supported_capabilities: set[str]) -> t
     if not isinstance(request["objective"], dict):
         return False, "objective must be an object."
 
+    if not valid_nonempty_string(request["objective"].get("type")):
+        return False, "objective.type is required."
+
+    if not valid_nonempty_string(request["objective"].get("question")):
+        return False, "objective.question is required."
+
     if not isinstance(request["output"], dict):
         return False, "output must be an object."
+
+    if not valid_nonempty_string(request["output"].get("format")):
+        return False, "output.format is required."
 
     if not isinstance(request["payment"], dict):
         return False, "payment must be an object."
