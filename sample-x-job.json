@@ -1,0 +1,36 @@
+{
+  "job_id": "job_x_001",
+  "protocol_version": "0.2",
+  "capability": {
+    "id": "social.x.observe",
+    "version": "0.2"
+  },
+  "consumer": {
+    "consumer_id": "drayn-core"
+  },
+  "subject": {
+    "type": "x_account",
+    "id": "123456789"
+  },
+  "objective": {
+    "type": "observation",
+    "description": "Observe public X activity for this account."
+  },
+  "context": {
+    "start_time": "2026-09-30T00:00:00Z",
+    "end_time": "2026-09-30T23:59:59Z"
+  },
+  "constraints": {
+    "max_observations": 25
+  },
+  "output": {
+    "format": "observations"
+  },
+  "payment": {
+    "payment_reference": "pay_x_001",
+    "currency": "USDC",
+    "network": "solana",
+    "payer": "consumer-solana-wallet",
+    "payee": "provider-solana-wallet"
+  }
+}
