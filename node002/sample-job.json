@@ -1,0 +1,11 @@
+{
+  "job_id": "job_x_001",
+  "protocol_version": "0.2",
+  "capability": {"id": "social.x.observe", "version": "0.2"},
+  "consumer": {"consumer_id": "drayn-core"},
+  "objective": {"type": "observation", "question": "Observe public X activity for this account."},
+  "subject": {"type": "x_account", "id": "@WormsOnAcid"},
+  "constraints": {"time_window": {"from": "2026-09-30T00:00:00Z", "to": "2026-09-30T23:59:59Z"}, "max_observations": 25},
+  "output": {"format": "structured_observations"},
+  "payment": {"payment_reference": "pay_x_001", "currency": "USDC", "network": "solana", "payer": "consumer-solana-wallet", "payee": "provider-solana-wallet"}
+}
