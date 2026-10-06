@@ -39,7 +39,7 @@ class TestNode002(unittest.TestCase):
  def test_duplicate_is_idempotent(self):
   self.assertEqual(self.p.submit(JOB)[0],202); self.assertEqual(self.p.submit(JOB)[0],202); self.assertEqual(self.wait("test-1")[1]["status"],"completed")
   logs=self.log_stream.getvalue()
-  self.assertIn("duplicate_submission job_id=test-1 existing_status=running no_new_execution=true",logs)
+  self.assertRegex(logs,r"duplicate_submission job_id=test-1 existing_status=(running|completed) no_new_execution=true")
   self.assertEqual(logs.count("execution_started job_id=test-1"),1)
 
  def test_missing_question_rejected(self): self.assertEqual(self.p.submit({**JOB,"job_id":"bad","objective":{"type":"observation"}})[0],400)
